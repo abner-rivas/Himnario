@@ -1,8 +1,0 @@
-ktor:
-  application:
-    modules:
-      - com.himnario.ApplicationKt.module
-  deployment:
-    host: 0.0.0.0
-    port: ${APP_PORT:8080}
-
