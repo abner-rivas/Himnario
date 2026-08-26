@@ -1,0 +1,34 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Gradle / Kotlin
+.gradle/
+build/
+out/
+*.class
+
+# IDEs and editors
+.idea/
+*.iml
+.vscode/
+.codex/
+*.swp
+*.swo
+*~
+
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+
+# Operating systems
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp

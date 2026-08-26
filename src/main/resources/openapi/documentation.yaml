@@ -1,0 +1,281 @@
+openapi: 3.0.3
+info:
+  title: Himnario Digital API
+  version: 0.1.0
+  description: Initial API for the global hymn catalog.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Health
+  - name: Hymns
+paths:
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Check API liveness
+      responses:
+        "200":
+          description: The API process is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v1/health/ready:
+    get:
+      tags: [Health]
+      summary: Check API readiness and PostgreSQL connectivity
+      responses:
+        "200":
+          description: The API can connect to PostgreSQL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/hymns:
+    get:
+      tags: [Hymns]
+      summary: List hymns with bounded pagination and filters
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/HymnStatus" }
+        - name: tempo
+          in: query
+          schema: { $ref: "#/components/schemas/HymnTempo" }
+        - name: key
+          in: query
+          schema: { type: string, example: G }
+      responses:
+        "200":
+          description: A page of hymns.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HymnListApiResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    post:
+      tags: [Hymns]
+      summary: Create a hymn (provisional public endpoint)
+      description: This endpoint will move under /api/v1/admin/hymns when authentication is introduced.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHymnRequest"
+      responses:
+        "201":
+          description: Hymn created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HymnApiResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /api/v1/hymns/{id}:
+    parameters:
+      - $ref: "#/components/parameters/HymnId"
+    get:
+      tags: [Hymns]
+      summary: Get a hymn by id
+      responses:
+        "200":
+          description: Hymn found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HymnApiResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Hymns]
+      summary: Update a hymn (provisional public endpoint)
+      description: Omitted properties retain their existing value. This endpoint will be protected later.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHymnRequest"
+      responses:
+        "200":
+          description: Hymn updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HymnApiResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /api/v1/hymns/{id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/HymnId"
+    patch:
+      tags: [Hymns]
+      summary: Archive a hymn without deleting it
+      responses:
+        "200":
+          description: Hymn archived, or already archived.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HymnApiResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  parameters:
+    HymnId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Malformed request or query parameter.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    NotFound:
+      description: Hymn not found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    Conflict:
+      description: A unique value could not be allocated.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    ValidationError:
+      description: The request violates a business validation.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    ServiceUnavailable:
+      description: PostgreSQL is unavailable.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+  schemas:
+    HymnStatus:
+      type: string
+      enum: [DRAFT, ACTIVE, ARCHIVED]
+    HymnTempo:
+      type: string
+      enum: [SLOW, MEDIUM, FAST]
+    HymnMusicalMode:
+      type: string
+      enum: [MAJOR, MINOR]
+    CreateHymnRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, maxLength: 255, example: Santo Espíritu }
+        description: { type: string, nullable: true, maxLength: 5000 }
+        lyrics: { type: string, nullable: true, maxLength: 100000 }
+        musicalKey: { type: string, nullable: true, maxLength: 16, example: G }
+        musicalMode:
+          allOf: [{ $ref: "#/components/schemas/HymnMusicalMode" }]
+          nullable: true
+        bpm: { type: integer, nullable: true, minimum: 1, example: 72 }
+        tempo:
+          allOf: [{ $ref: "#/components/schemas/HymnTempo" }]
+          nullable: true
+        status:
+          allOf: [{ $ref: "#/components/schemas/HymnStatus" }]
+          default: DRAFT
+    UpdateHymnRequest:
+      type: object
+      properties:
+        title: { type: string, maxLength: 255 }
+        description: { type: string, nullable: true, maxLength: 5000 }
+        lyrics: { type: string, nullable: true, maxLength: 100000 }
+        musicalKey: { type: string, nullable: true, maxLength: 16 }
+        musicalMode:
+          allOf: [{ $ref: "#/components/schemas/HymnMusicalMode" }]
+          nullable: true
+        bpm: { type: integer, nullable: true, minimum: 1 }
+        tempo:
+          allOf: [{ $ref: "#/components/schemas/HymnTempo" }]
+          nullable: true
+        status:
+          allOf: [{ $ref: "#/components/schemas/HymnStatus" }]
+    Hymn:
+      type: object
+      required: [id, title, slug, status, version, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        slug: { type: string }
+        description: { type: string, nullable: true }
+        lyrics: { type: string, nullable: true }
+        musicalKey: { type: string, nullable: true }
+        musicalMode:
+          allOf: [{ $ref: "#/components/schemas/HymnMusicalMode" }]
+          nullable: true
+        bpm: { type: integer, nullable: true }
+        tempo:
+          allOf: [{ $ref: "#/components/schemas/HymnTempo" }]
+          nullable: true
+        status: { $ref: "#/components/schemas/HymnStatus" }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Pagination:
+      type: object
+      required: [page, size, totalItems, totalPages]
+      properties:
+        page: { type: integer }
+        size: { type: integer }
+        totalItems: { type: integer, format: int64 }
+        totalPages: { type: integer, format: int64 }
+    HymnApiResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: "#/components/schemas/Hymn" }
+    HymnListApiResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          required: [items, pagination]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Hymn" }
+            pagination: { $ref: "#/components/schemas/Pagination" }
+    HealthResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string, example: Himnario API is healthy }
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, example: HYMN_NOT_FOUND }
+            message: { type: string, example: Hymn not found }
+

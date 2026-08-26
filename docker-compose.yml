@@ -1,0 +1,47 @@
+name: himnario-api
+
+services:
+  postgres:
+    image: postgres:18.6-alpine3.24
+    container_name: himnario-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-himnario}
+      POSTGRES_USER: ${DB_USER:-himnario}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-himnario_dev}
+    ports:
+      - "${DB_PORT:-5434}:5432"
+    volumes:
+      - himnario_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  api:
+    image: himnario-api:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: himnario-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_PORT: ${APP_PORT:-8080}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-himnario}
+      DB_USER: ${DB_USER:-himnario}
+      DB_PASSWORD: ${DB_PASSWORD:-himnario_dev}
+      DB_MAX_POOL_SIZE: ${DB_MAX_POOL_SIZE:-10}
+      CORS_ALLOWED_HOSTS: ${CORS_ALLOWED_HOSTS:-localhost:19006,localhost:8081,127.0.0.1:19006,127.0.0.1:8081}
+    ports:
+      - "${APP_PORT:-8080}:${APP_PORT:-8080}"
+
+volumes:
+  himnario_postgres_data:
+    name: himnario_postgres_data

@@ -1,0 +1,2 @@
+rootProject.name = "himnario-api"
+
